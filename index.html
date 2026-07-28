@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GLA Swine Pedigree Family Tree Diagram</title>
+    <title>GLA Swine Pedigree Family Tree Chart</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
@@ -14,11 +14,9 @@
         .search-box input:focus { border-color: #3B82F6; }
         .section-title { border-left: 6px solid #1E3A8A; padding-left: 15px; color: #1E3A8A; font-weight: 800; font-size: 18px; margin: 25px 0 15px 0; }
         
-        /* 樹狀圖顯示區塊 */
         .tree-diagram-box { background: white; border: 2px solid #CBD5E1; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); text-align: center; overflow-x: auto; margin-bottom: 30px; }
         .mermaid { display: inline-block; }
 
-        /* 育種指標卡片 */
         .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; border-top: 4px solid #3B82F6; text-align: center; }
         .card-label { font-size: 12px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
@@ -33,10 +31,10 @@
         <p style="opacity: 0.8; font-size: 14px;">Professional Pedigree Chart & Genetic Evaluation Analysis</p>
     </div>
 
-    <div id="status" class="loading-status">🔄 Syncing live cloud database from Google Sheets...</div>
+    <div id="status" class="loading-status">🔄 Loading database from repository...</div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052) to draw pedigree chart..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052)..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
@@ -48,32 +46,37 @@
     let familyData = [];
     let valueData = [];
 
-    const SHEET_ID = "17TEL9lgV_3PzWUW0xj63LEiipyl5j_0W5BJjSVi89kA";
-    const FAMILY_GID = "0";
-    const VALUE_GID = "1096695189";
-
-    async function loadCloudData() {
+    // 直接讀取同目錄下的 CSV 檔案，避開雲端跨域封鎖
+    async function loadData() {
         try {
-            let famUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
-            let valUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
+            Papa.parse('分析集中_育種_家族階層清單.csv', {
+                download: true,
+                header: false,
+                complete: function(results) { familyData = results.data; checkLoaded(); }
+            });
 
-            Papa.parse(famUrl, { download: true, header: false, complete: function(results) { familyData = results.data; checkLoaded(); } });
-            Papa.parse(valUrl, { download: true, header: true, complete: function(results) { valueData = results.data; checkLoaded(); } });
+            Papa.parse('分析集中_母豬每次育種價值分析_轉.csv', {
+                download: true,
+                header: true,
+                complete: function(results) { valueData = results.data; checkLoaded(); }
+            });
         } catch (e) {
-            document.getElementById('status').innerHTML = "❌ Cloud data connection failed.";
+            document.getElementById('status').innerHTML = "❌ Data loading failed. Please ensure CSV files are in the repository root.";
         }
     }
 
     let loadedCount = 0;
     function checkLoaded() {
         loadedCount++;
-        if (loadedCount >= 2) { document.getElementById('status').innerHTML = "✅ Database synced! Enter an ID to generate the pedigree chart."; }
+        if (loadedCount >= 2) {
+            document.getElementById('status').innerHTML = "✅ Database loaded successfully! Enter an ID to generate the chart.";
+        }
     }
 
-    loadCloudData();
+    loadData();
 
     async function handleSearch() {
-        let query = document.getElementById('searchInput'].value.trim().toLowerCase();
+        let query = document.getElementById('searchInput').value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
@@ -84,14 +87,13 @@
         let html = `<div class="section-title">I. 🧬 Professional Pedigree Family Tree Chart</div>`;
         html += `<div class="tree-diagram-box"><div class="mermaid" id="mermaidChart">`;
         
-        // 建立類似血統樹狀圖的結構語法 (Graph TD)
         let mermaidCode = "graph TD;\n";
         mermaidCode += `  Target[\"♀ Target: ${query.toUpperCase()}\"]\n`;
 
         if (matchedFamily.length > 0) {
             matchedFamily.slice(0, 8).forEach((row, index) => {
-                let sire = row[0] ? row[0].replace(/["']/g, "") : "Unknown Sire";
-                let dam = row[6] ? row[6].replace(/["']/g, "") : "Unknown Dam";
+                let sire = row[0] ? String(row[0]).replace(/["']/g, "") : "Unknown Sire";
+                let dam = row[6] ? String(row[6]).replace(/["']/g, "") : "Unknown Dam";
                 let gen = row[1] || "Gen";
                 
                 mermaidCode += `  Sire${index}[\"♂ ${sire}\"] --> Target\n`;
@@ -106,7 +108,6 @@
         }
         mermaidCode += "</div></div>";
 
-        // 2. 育種指標表現
         let matchedValue = valueData.filter(row => {
             let tag = row['母豬耳號(Sow Ear Tag)'] || '';
             return String(tag).toLowerCase().includes(query);
@@ -130,8 +131,8 @@
 
         resultsDiv.innerHTML = html;
 
-        // 觸發 Mermaid 重新渲染圖表
         try {
+            document.getElementById('mermaidChart').textContent = mermaidCode;
             await mermaid.run({ nodes: [document.getElementById('mermaidChart')] });
         } catch (e) {
             console.log("Chart render error:", e);
