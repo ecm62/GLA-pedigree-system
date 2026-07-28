@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GLA Swine Pedigree Family Tree Chart</title>
+    <title>GLA Swine Pedigree Family Tree Diagram</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
@@ -28,13 +28,13 @@
 <div class="container">
     <div class="header">
         <h1>🧬 GLA SWINE PEDIGREE FAMILY TREE DIAGRAM</h1>
-        <p style="opacity: 0.8; font-size: 14px;">Professional Pedigree Chart & Genetic Evaluation Analysis</p>
+        <p style="opacity: 0.8; font-size: 14px;">Live Google Sheets Cloud-Synced Pedigree Chart & Genetic Analysis</p>
     </div>
 
-    <div id="status" class="loading-status">🔄 Loading database from repository...</div>
+    <div id="status" class="loading-status">🔄 Connecting and syncing live data from Google Sheets...</div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052)..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052) to generate chart..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
@@ -46,22 +46,33 @@
     let familyData = [];
     let valueData = [];
 
-    // 直接讀取同目錄下的 CSV 檔案，避開雲端跨域封鎖
-    async function loadData() {
+    // 您的 Google 試算表 ID 與對應分頁 GID
+    const SHEET_ID = "17TEL9lgV_3PzWUW0xj63LEiipyl5j_0W5BJjSVi89kA";
+    const FAMILY_GID = "0";            // 家族階層清單分頁
+    const VALUE_GID = "1096695189";    // 育種價值分析分頁
+
+    // 透過線上跨域轉址通道即時讀取 Google 試算表
+    async function loadCloudData() {
         try {
-            Papa.parse('分析集中_育種_家族階層清單.csv', {
+            let targetFamUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
+            let targetValUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
+            
+            let famUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(targetFamUrl);
+            let valUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(targetValUrl);
+
+            Papa.parse(famUrl, {
                 download: true,
                 header: false,
                 complete: function(results) { familyData = results.data; checkLoaded(); }
             });
 
-            Papa.parse('分析集中_母豬每次育種價值分析_轉.csv', {
+            Papa.parse(valUrl, {
                 download: true,
                 header: true,
                 complete: function(results) { valueData = results.data; checkLoaded(); }
             });
         } catch (e) {
-            document.getElementById('status').innerHTML = "❌ Data loading failed. Please ensure CSV files are in the repository root.";
+            document.getElementById('status').innerHTML = "❌ Cloud data connection failed. Please ensure your Google Sheet is set to 'Anyone with the link can view'.";
         }
     }
 
@@ -69,14 +80,14 @@
     function checkLoaded() {
         loadedCount++;
         if (loadedCount >= 2) {
-            document.getElementById('status').innerHTML = "✅ Database loaded successfully! Enter an ID to generate the chart.";
+            document.getElementById('status').innerHTML = "✅ Live cloud database synced! Enter an ID to generate the pedigree chart.";
         }
     }
 
-    loadData();
+    loadCloudData();
 
     async function handleSearch() {
-        let query = document.getElementById('searchInput').value.trim().toLowerCase();
+        let query = document.getElementById('searchInput'].value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
