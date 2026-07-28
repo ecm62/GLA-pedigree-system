@@ -30,7 +30,7 @@
         <p style="opacity: 0.8; font-size: 14px;">Real-time Google Sheets Cloud-Synced Pedigree & Genetic Analysis</p>
     </div>
 
-    <div id="status" class="loading-status">🔄 Connecting and syncing live data from Google Sheets...</div>
+    <div id="status" class="loading-status">🔄 Connecting and syncing live data from Google Sheets tabs...</div>
 
     <div class="search-box">
         <input type="text" id="boarInput" placeholder="Enter Boar Ear Tag (Optional)..." onkeyup="handleSearch()">
@@ -44,18 +44,17 @@
     let familyData = [];
     let valueData = [];
 
-    // 請填入您的 Google 試算表 ID 與對應的分頁 GID
+    // 設定您的 Google 試算表 ID 與對應分頁 GID
     const SHEET_ID = "17TEL9lgV_3PzWUW0xj63LEiipyl5j_0W5BJjSVi89kA";
-    const FAMILY_GID = "0"; // 家族階層清單分頁 GID
-    const VALUE_GID = "0";  // 育種價值分析分頁 GID (若在不同分頁可修改此處)
+    const FAMILY_GID = "0";            // 家族階層清單分頁
+    const VALUE_GID = "1096695189";    // 育種價值分析分頁
 
-    // 即時透過連結抓取 Google Sheets 資料
     async function loadCloudData() {
         try {
             let famUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
             let valUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
 
-            // Load Family Tree Data
+            // 讀取家族樹分頁
             Papa.parse(famUrl, {
                 download: true,
                 header: false,
@@ -65,7 +64,7 @@
                 }
             });
 
-            // Load Breeding Value Data
+            // 讀取育種價值分頁
             Papa.parse(valUrl, {
                 download: true,
                 header: true,
@@ -83,7 +82,7 @@
     function checkLoaded() {
         loadedCount++;
         if (loadedCount >= 2) {
-            document.getElementById('status').innerHTML = "✅ Live cloud database synced! Please enter a Boar or Sow ID above to search.";
+            document.getElementById('status').innerHTML = "✅ Live cloud database synced across tabs! Please enter a Boar or Sow ID above to search.";
         }
     }
 
@@ -97,7 +96,7 @@
 
         if (!boarQuery && !sowQuery) return;
 
-        // 1. Family Tree & Pedigree Hierarchy Search
+        // 1. 家族樹血統階層搜尋
         let matchedFamily = familyData.filter(row => {
             let rowStr = Object.values(row).join(' ').toLowerCase();
             let matchBoar = boarQuery ? rowStr.includes(boarQuery) : true;
@@ -116,7 +115,7 @@
             html += `<p>No matching family pedigree records found for the given criteria.</p>`;
         }
 
-        // 2. Genetic & Breeding Performance Index Search
+        // 2. 育種指標搜尋
         let targetQuery = sowQuery || boarQuery;
         let matchedValue = valueData.filter(row => {
             let tag = row['母豬耳號(Sow Ear Tag)'] || '';
