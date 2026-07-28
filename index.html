@@ -33,13 +33,13 @@
 <div class="container">
     <div class="header">
         <h1>🧬 GLA SWINE PEDIGREE FAMILY TREE DIAGRAM</h1>
-        <p style="opacity: 0.8; font-size: 14px;">Live Google Sheets Cloud-Synced Pedigree Chart & Genetic Analysis</p>
+        <p style="opacity: 0.8; font-size: 14px;">Online Google Sheets Cloud-Synced Pedigree Chart & Genetic Analysis</p>
     </div>
 
-    <div id="status" class="loading-status">🔄 Connecting and syncing live data from Google Sheets...</div>
+    <div id="status" class="loading-status">🔄 Connecting to Google Sheets online database...</div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052) to generate chart..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052)..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
@@ -53,13 +53,11 @@
     const FAMILY_GID = "0";
     const VALUE_GID = "1096695189";
 
+    // 使用 Google Sheets 專用線上 API 讀取通道
     async function loadCloudData() {
         try {
-            let targetFamUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
-            let targetValUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
-            
-            let famUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(targetFamUrl);
-            let valUrl = `https://api.allorigins.win/raw?url=` + encodeURIComponent(targetValUrl);
+            let famUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${FAMILY_GID}`;
+            let valUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&gid=${VALUE_GID}`;
 
             Papa.parse(famUrl, {
                 download: true,
@@ -73,7 +71,7 @@
                 complete: function(results) { valueData = results.data; checkLoaded(); }
             });
         } catch (e) {
-            document.getElementById('status').innerHTML = "❌ Cloud data connection failed.";
+            document.getElementById('status').innerHTML = "❌ Cloud connection failed. Please check Google Sheet sharing permissions.";
         }
     }
 
@@ -81,14 +79,14 @@
     function checkLoaded() {
         loadedCount++;
         if (loadedCount >= 2) {
-            document.getElementById('status').innerHTML = "✅ Live cloud database synced! Enter an ID to generate the pedigree tree.";
+            document.getElementById('status').innerHTML = "✅ Online Google Sheets connected! Enter an ID to generate the chart.";
         }
     }
 
     loadCloudData();
 
     function handleSearch() {
-        let query = document.getElementById('searchInput').value.trim().toLowerCase();
+        let query = document.getElementById('searchInput'].value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
