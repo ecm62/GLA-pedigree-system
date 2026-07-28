@@ -6,10 +6,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #F8FAFC; color: #1E293B; margin: 0; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; }
+        .container { max-width: 1100px; margin: 0 auto; }
         .header { text-align: center; color: #FFFFFF; padding: 25px; background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%); border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
-        .search-box { text-align: center; margin-bottom: 25px; }
-        .search-box input { width: 60%; padding: 12px 20px; font-size: 16px; border: 2px solid #CBD5E1; border-radius: 8px; outline: none; }
+        .search-box { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; }
+        .search-box input { width: 35%; padding: 12px 20px; font-size: 16px; border: 2px solid #CBD5E1; border-radius: 8px; outline: none; }
         .search-box input:focus { border-color: #3B82F6; }
         .section-title { border-left: 6px solid #1E3A8A; padding-left: 15px; color: #1E3A8A; font-weight: 800; font-size: 18px; margin: 25px 0 15px 0; }
         table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
@@ -19,24 +19,21 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; border-top: 4px solid #3B82F6; text-align: center; }
         .card-label { font-size: 12px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
         .card-value { font-size: 18px; color: #1E3A8A; font-weight: 800; }
-        .file-upload-box { background: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 25px; border: 2px dashed #CBD5E1; }
+        .loading-status { text-align: center; font-weight: bold; color: #3B82F6; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h1>🧬 GLA 豬隻家族樹與育種查詢系統</h1>
-        <p style="opacity: 0.8; font-size: 14px;">GitHub Pages 純前端原生查詢介面</p>
+        <p style="opacity: 0.8; font-size: 14px;">雲端自動聯動・公母豬雙向家族樹與遺傳育種分析</p>
     </div>
 
-    <div class="file-upload-box">
-        <p><b>📂 請先選取您的本地 CSV 資料檔以載入系統：</b></p>
-        <label>家族階層清單 CSV: <input type="file" id="familyFile" accept=".csv"></label><br><br>
-        <label>母豬育種價值 CSV: <input type="file" id="valueFile" accept=".csv"></label>
-    </div>
+    <div id="status" class="loading-status">🔄 正在自動從雲端同步讀取最新資料庫...</div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="輸入公豬或母豬耳號 (例如 144-5)..." onkeyup="searchPig()">
+        <input type="text" id="boarInput" placeholder="輸入公豬耳號 (選填)..." onkeyup="handleSearch()">
+        <input type="text" id="sowInput" placeholder="輸入母豬耳號 (選填)..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
@@ -46,61 +43,100 @@
     let familyData = [];
     let valueData = [];
 
-    document.getElementById('familyFile').addEventListener('change', function(e) {
-        Papa.parse(e.target.files[0], {
-            header: false,
-            complete: function(results) { familyData = results.data; alert("家族階層清單載入成功！"); }
-        });
-    });
+    // 填入您的 Google 試算表 ID 與 對應分頁 GID
+    const SHEET_ID = "17TEL9lgV_3PzWUW0xj63LEiipyl5j_0W5BJjSVi89kA"; // 您的總表 ID
+    const FAMILY_GID = "0"; // 家族階層清單分頁 GID
+    const VALUE_GID = "0";  // 母豬育種價值分析分頁 GID (若在不同分頁可修改此處)
 
-    document.getElementById('valueFile').addEventListener('change', function(e) {
-        Papa.parse(e.target.files[0], {
-            header: true,
-            complete: function(results) { valueData = results.data; alert("育種價值分析載入成功！"); }
-        });
-    });
+    // 自動從雲端載入資料
+    async function loadCloudData() {
+        try {
+            let famUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
+            let valUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
 
-    function searchPig() {
-        let query = document.getElementById('searchInput').value.trim().toLowerCase();
+            // 讀取家族資料
+            Papa.parse(famUrl, {
+                download: true,
+                header: false,
+                complete: function(results) {
+                    familyData = results.data;
+                    checkLoaded();
+                }
+            });
+
+            // 讀取育種價值資料
+            Papa.parse(valUrl, {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    valueData = results.data;
+                    checkLoaded();
+                }
+            });
+        } catch (e) {
+            document.getElementById('status').innerHTML = "❌ 雲端資料載入失敗，請確認共用權限為「知道連結的任何人都能檢視」。";
+        }
+    }
+
+    let loadedCount = 0;
+    function checkLoaded() {
+        loadedCount++;
+        if (loadedCount >= 2) {
+            document.getElementById('status').innerHTML = "✅ 雲端資料庫已同步完成，請於下方輸入耳號查詢！";
+        }
+    }
+
+    loadCloudData();
+
+    function handleSearch() {
+        let boarQuery = document.getElementById('boarInput').value.trim().toLowerCase();
+        let sowQuery = document.getElementById('sowInput').value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
-        if (!query) return;
+        if (!boarQuery && !sowQuery) return;
 
-        // 1. 搜尋家族樹
-        let matchedFamily = familyData.filter(row => Object.values(row).some(val => String(val).toLowerCase().includes(query)));
-        let html = `<div class="section-title">I. 🧬 家族樹架構與血統階層 (${matchedFamily.length} 筆)</div>`;
+        // 1. 家族樹架構與血統階層查詢
+        let matchedFamily = familyData.filter(row => {
+            let rowStr = Object.values(row).join(' ').toLowerCase();
+            let matchBoar = boarQuery ? rowStr.includes(boarQuery) : true;
+            let matchSow = sowQuery ? rowStr.includes(sowQuery) : true;
+            return matchBoar && matchSow;
+        });
+
+        let html = `<div class="section-title">I. 🧬 家族樹架構與血統階層 (找到 ${matchedFamily.length} 筆關聯)</div>`;
         if (matchedFamily.length > 0) {
-            html += `<table><tr><th>父系/公豬資訊</th><th>代數</th><th>品種</th><th>母系/母豬資訊</th></tr>`;
-            matchedFamily.slice(0, 15).forEach(row => {
+            html += `<table><tr><th>父系/公豬資訊 (Sire)</th><th>代數</th><th>品種</th><th>母系/母豬資訊 (Dam)</th></tr>`;
+            matchedFamily.slice(0, 20).forEach(row => {
                 html += `<tr><td>${row[0]||''}</td><td>${row[1]||''}</td><td>${row[2]||''}</td><td>${row[6]||''}</td></tr>`;
             });
             html += `</table>`;
         } else {
-            html += `<p>未找到對應的家族血統紀錄。</p>`;
+            html += `<p>未找到符合該公/母豬條件的家族血統紀錄。</p>`;
         }
 
-        // 2. 搜尋育種價值
+        // 2. 遺傳育種核心指標查詢
+        let targetQuery = sowQuery || boarQuery;
         let matchedValue = valueData.filter(row => {
             let tag = row['母豬耳號(Sow Ear Tag)'] || '';
-            return String(tag).toLowerCase().includes(query);
+            return String(tag).toLowerCase().includes(targetQuery);
         });
 
         html += `<div class="section-title">II. 📊 遺傳育種核心指標與表現數據</div>`;
         if (matchedValue.length > 0) {
             matchedValue.forEach(row => {
                 html += `
-                <p><b>目標耳號: ${row['母豬耳號(Sow Ear Tag)']} (品種: ${row['品種(Breed)']||'N/A'})</b></p>
+                <p><b>目標耳號鎖定: ${row['母豬耳號(Sow Ear Tag)']} (品種: ${row['品種(Breed)']||'N/A'})</b></p>
                 <div class="card-grid">
-                    <div class="card"><div class="card-label">累計胎數</div><div class="card-value">${row['累計記錄胎數(Total Parities)']||'N/A'}</div></div>
-                    <div class="card"><div class="card-label">選拔指數</div><div class="card-value" style="color:#10B981;">${row['🏆 育種選拔指數(Selection Index)']||'N/A'}</div></div>
+                    <div class="card"><div class="card-label">累計胎數 (Parity)</div><div class="card-value">${row['累計記錄胎數(Total Parities)']||'N/A'}</div></div>
+                    <div class="card"><div class="card-label">選拔指數 (Index)</div><div class="card-value" style="color:#10B981;">${row['🏆 育種選拔指數(Selection Index)']||'N/A'}</div></div>
                     <div class="card"><div class="card-label">分娩率</div><div class="card-value">${row['個體成功分娩率(Farrowing Rate %)']||'0'}%</div></div>
-                    <div class="card"><div class="card-label">選拔評價</div><div class="card-value" style="font-size:12px;">${row['選拔評價與行動建議(Selection Comment)']||'N/A'}</div></div>
+                    <div class="card"><div class="card-label">選拔評價 (Comment)</div><div class="card-value" style="font-size:12px;">${row['選拔評價與行動建議(Selection Comment)']||'N/A'}</div></div>
                 </div>
                 `;
             });
         } else {
-            html += `<p>未找到對應的育種表現紀錄。</p>`;
+            html += `<p>在育種價值分析表中未找到與此耳號對應的表現紀錄。</p>`;
         }
 
         resultsDiv.innerHTML = html;
