@@ -2,20 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GLA Swine Pedigree & Breeding Query System</title>
-    <!-- Include PapaParse to parse CSV directly from Google Sheets -->
+    <title>GLA Swine Pedigree Tree & Breeding System</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #F8FAFC; color: #1E293B; margin: 0; padding: 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
+        .container { max-width: 1200px; margin: 0 auto; }
         .header { text-align: center; color: #FFFFFF; padding: 25px; background: linear-gradient(135deg, #1E3A8A 0%, #3B82F6 100%); border-radius: 12px; margin-bottom: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
         .search-box { display: flex; justify-content: center; gap: 15px; margin-bottom: 25px; }
-        .search-box input { width: 35%; padding: 12px 20px; font-size: 16px; border: 2px solid #CBD5E1; border-radius: 8px; outline: none; }
+        .search-box input { width: 40%; padding: 12px 20px; font-size: 16px; border: 2px solid #CBD5E1; border-radius: 8px; outline: none; }
         .search-box input:focus { border-color: #3B82F6; }
         .section-title { border-left: 6px solid #1E3A8A; padding-left: 15px; color: #1E3A8A; font-weight: 800; font-size: 18px; margin: 25px 0 15px 0; }
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); margin-bottom: 20px; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #E2E8F0; font-size: 14px; }
-        th { background-color: #F1F5F9; color: #1E3A8A; font-weight: 700; }
+        
+        /* 樹狀圖卡片結構 */
+        .tree-node-container { display: flex; flex-direction: column; gap: 20px; margin-bottom: 25px; }
+        .tree-card { background: white; border: 2px solid #3B82F6; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+        .tree-header-row { display: flex; justify-content: space-between; align-items: center; background: #EFF6FF; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-weight: bold; color: #1E3A8A; }
+        .branches-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+        .branch-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-left: 4px solid #10B981; padding: 15px; border-radius: 8px; }
+        .branch-label { font-size: 11px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
+        .branch-value { font-size: 15px; color: #1E293B; font-weight: 700; }
+
+        /* 育種指標卡片 */
         .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); border: 1px solid #E2E8F0; border-top: 4px solid #3B82F6; text-align: center; }
         .card-label { font-size: 12px; color: #64748B; font-weight: 700; text-transform: uppercase; margin-bottom: 5px; }
@@ -26,15 +33,14 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1>🧬 GLA SWINE PEDIGREE & BREEDING QUERY SYSTEM</h1>
-        <p style="opacity: 0.8; font-size: 14px;">Real-time Google Sheets Cloud-Synced Pedigree & Genetic Analysis</p>
+        <h1>🧬 GLA SWINE PEDIGREE TREE & BREEDING SYSTEM</h1>
+        <p style="opacity: 0.8; font-size: 14px;">Multi-Generation Hierarchical Pedigree Tree & Genetic Evaluation</p>
     </div>
 
-    <div id="status" class="loading-status">🔄 Connecting and syncing live data from Google Sheets tabs...</div>
+    <div id="status" class="loading-status">🔄 Syncing live cloud database from Google Sheets...</div>
 
     <div class="search-box">
-        <input type="text" id="boarInput" placeholder="Enter Boar Ear Tag (Optional)..." onkeyup="handleSearch()">
-        <input type="text" id="sowInput" placeholder="Enter Sow Ear Tag (Optional)..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" placeholder="Enter Sow or Boar Ear Tag (e.g., D1052, ANNA, 144-5)..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
@@ -44,37 +50,28 @@
     let familyData = [];
     let valueData = [];
 
-    // 設定您的 Google 試算表 ID 與對應分頁 GID
     const SHEET_ID = "17TEL9lgV_3PzWUW0xj63LEiipyl5j_0W5BJjSVi89kA";
-    const FAMILY_GID = "0";            // 家族階層清單分頁
-    const VALUE_GID = "1096695189";    // 育種價值分析分頁
+    const FAMILY_GID = "0";
+    const VALUE_GID = "1096695189";
 
     async function loadCloudData() {
         try {
             let famUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${FAMILY_GID}`;
             let valUrl = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=${VALUE_GID}`;
 
-            // 讀取家族樹分頁
             Papa.parse(famUrl, {
                 download: true,
                 header: false,
-                complete: function(results) {
-                    familyData = results.data;
-                    checkLoaded();
-                }
+                complete: function(results) { familyData = results.data; checkLoaded(); }
             });
 
-            // 讀取育種價值分頁
             Papa.parse(valUrl, {
                 download: true,
                 header: true,
-                complete: function(results) {
-                    valueData = results.data;
-                    checkLoaded();
-                }
+                complete: function(results) { valueData = results.data; checkLoaded(); }
             });
         } catch (e) {
-            document.getElementById('status').innerHTML = "❌ Cloud data connection failed. Please ensure your Google Sheet sharing permission is set to 'Anyone with the link can view'.";
+            document.getElementById('status').innerHTML = "❌ Cloud data connection failed.";
         }
     }
 
@@ -82,51 +79,67 @@
     function checkLoaded() {
         loadedCount++;
         if (loadedCount >= 2) {
-            document.getElementById('status').innerHTML = "✅ Live cloud database synced across tabs! Please enter a Boar or Sow ID above to search.";
+            document.getElementById('status').innerHTML = "✅ Database synced! Enter an ear tag to generate the pedigree tree.";
         }
     }
 
     loadCloudData();
 
     function handleSearch() {
-        let boarQuery = document.getElementById('boarInput').value.trim().toLowerCase();
-        let sowQuery = document.getElementById('sowInput').value.trim().toLowerCase();
+        let query = document.getElementById('searchInput').value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
-        if (!boarQuery && !sowQuery) return;
+        if (!query) return;
 
-        // 1. 家族樹血統階層搜尋
+        // 1. 產生多代樹狀圖結構
         let matchedFamily = familyData.filter(row => {
             let rowStr = Object.values(row).join(' ').toLowerCase();
-            let matchBoar = boarQuery ? rowStr.includes(boarQuery) : true;
-            let matchSow = sowQuery ? rowStr.includes(sowQuery) : true;
-            return matchBoar && matchSow;
+            return rowStr.includes(query);
         });
 
-        let html = `<div class="section-title">I. 🧬 Pedigree Tree & Hierarchy (Found ${matchedFamily.length} relations)</div>`;
+        let html = `<div class="section-title">I. 🧬 Hierarchical Pedigree Tree Structure (Found ${matchedFamily.length} nodes)</div>`;
         if (matchedFamily.length > 0) {
-            html += `<table><tr><th>Sire Information</th><th>Generation</th><th>Breed</th><th>Dam Information</th></tr>`;
-            matchedFamily.slice(0, 20).forEach(row => {
-                html += `<tr><td>${row[0]||''}</td><td>${row[1]||''}</td><td>${row[2]||''}</td><td>${row[6]||''}</td></tr>`;
+            html += `<div class="tree-node-container">`;
+            matchedFamily.slice(0, 15).forEach((row, index) => {
+                html += `
+                <div class="tree-card">
+                    <div class="tree-header-row">
+                        <span>🌳 Tree Node #${index + 1}</span>
+                        <span>Breed: ${row[2]||'N/A'}</span>
+                    </div>
+                    <div class="branches-grid">
+                        <div class="branch-box" style="border-left-color: #3B82F6;">
+                            <div class="branch-label">Sire Info (父系 / 公豬)</div>
+                            <div class="branch-value">${row[0]||'N/A'}</div>
+                        </div>
+                        <div class="branch-box" style="border-left-color: #8B5CF6;">
+                            <div class="branch-label">Generation (代數)</div>
+                            <div class="branch-value">${row[1]||'N/A'}</div>
+                        </div>
+                        <div class="branch-box" style="border-left-color: #10B981;">
+                            <div class="branch-label">Dam Info (母系 / 母豬)</div>
+                            <div class="branch-value">${row[6]||'N/A'}</div>
+                        </div>
+                    </div>
+                </div>`;
             });
-            html += `</table>`;
+            html += `</div>`;
         } else {
-            html += `<p>No matching family pedigree records found for the given criteria.</p>`;
+            html += `<p>No matching pedigree tree branches found for this ID.</p>`;
         }
 
-        // 2. 育種指標搜尋
-        let targetQuery = sowQuery || boarQuery;
+        // 2. 遺傳育種表現與交配紀錄
         let matchedValue = valueData.filter(row => {
             let tag = row['母豬耳號(Sow Ear Tag)'] || '';
-            return String(tag).toLowerCase().includes(targetQuery);
+            return String(tag).toLowerCase().includes(query);
         });
 
-        html += `<div class="section-title">II. 📊 Genetic Breeding Performance Indicators</div>`;
+        html += `<div class="section-title">II. 📊 Genetic Breeding Indicators & Performance</div>`;
         if (matchedValue.length > 0) {
             matchedValue.forEach(row => {
                 html += `
-                <p><b>Target Ear Tag: ${row['母豬耳號(Sow Ear Tag)']} (Breed: ${row['品種(Breed)']||'N/A'})</b></p>
+                <p><b>Target Sow Tag: ${row['母豬耳號(Sow Ear Tag)']} (Breed: ${row['品種(Breed)']||'N/A'})</b></p>
                 <div class="card-grid">
                     <div class="card"><div class="card-label">Total Parities</div><div class="card-value">${row['累計記錄胎數(Total Parities)']||'N/A'}</div></div>
                     <div class="card"><div class="card-label">Selection Index</div><div class="card-value" style="color:#10B981;">${row['🏆 育種選拔指數(Selection Index)']||'N/A'}</div></div>
@@ -134,7 +147,7 @@
                     <div class="card"><div class="card-label">Selection Comment</div><div class="card-value" style="font-size:12px;">${row['選拔評價與行動建議(Selection Comment)']||'N/A'}</div></div>
                 </div>
                 <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
-                    <b>📈 Detailed Performance Averages:</b> 
+                    <b>📈 Performance & Mating Status:</b> 
                     Avg LWW: ${row['40% 總離乳窩重平均(Avg LWW)']||'0'} ｜ 
                     Avg PWS: ${row['35% 育成率平均(Avg PWS)']||'0'} ｜ 
                     Avg NBA: ${row['25% 產活仔數平均(Avg NBA)']||'0'} ｜ 
@@ -143,7 +156,7 @@
                 `;
             });
         } else {
-            html += `<p>No detailed breeding performance records found for this ear tag in the analysis table.</p>`;
+            html += `<p>No detailed breeding performance records found for this ear tag.</p>`;
         }
 
         resultsDiv.innerHTML = html;
