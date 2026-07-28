@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>GLA Swine Family Tree Visualizer</title>
+    <title>GLA Swine Pedigree Family Tree Diagram</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #F8FAFC; color: #1E293B; margin: 0; padding: 20px; }
         .container { max-width: 1200px; margin: 0 auto; }
@@ -13,14 +14,9 @@
         .search-box input:focus { border-color: #3B82F6; }
         .section-title { border-left: 6px solid #1E3A8A; padding-left: 15px; color: #1E3A8A; font-weight: 800; font-size: 18px; margin: 25px 0 15px 0; }
         
-        /* 視覺化樹狀圖核心佈局 */
-        .tree-root-box { background: #1E3A8A; color: white; padding: 15px 25px; border-radius: 10px; font-weight: 800; font-size: 18px; display: inline-block; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        .tree-branch-container { display: flex; flex-direction: column; gap: 15px; position: relative; padding-left: 30px; border-left: 3px solid #3B82F6; margin-left: 15px; }
-        .tree-node-item { background: white; border: 2px solid #CBD5E1; border-radius: 10px; padding: 15px 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; align-items: center; position: relative; }
-        .tree-node-item::before { content: ""; position: absolute; left: -30px; top: 50%; width: 27px; height: 3px; background: #3B82F6; }
-        
-        .node-tag { font-size: 13px; font-weight: 700; color: #64748B; text-transform: uppercase; }
-        .node-val { font-size: 15px; font-weight: 800; color: #1E3A8A; }
+        /* 樹狀圖顯示區塊 */
+        .tree-diagram-box { background: white; border: 2px solid #CBD5E1; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); text-align: center; overflow-x: auto; margin-bottom: 30px; }
+        .mermaid { display: inline-block; }
 
         /* 育種指標卡片 */
         .card-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
@@ -33,20 +29,22 @@
 <body>
 <div class="container">
     <div class="header">
-        <h1>🧬 GLA SWINE FAMILY TREE & BREEDING SYSTEM</h1>
-        <p style="opacity: 0.8; font-size: 14px;">Visual Hierarchical Family Tree & Genetic Evaluation</p>
+        <h1>🧬 GLA SWINE PEDIGREE FAMILY TREE DIAGRAM</h1>
+        <p style="opacity: 0.8; font-size: 14px;">Professional Pedigree Chart & Genetic Evaluation Analysis</p>
     </div>
 
     <div id="status" class="loading-status">🔄 Syncing live cloud database from Google Sheets...</div>
 
     <div class="search-box">
-        <input type="text" id="searchInput" placeholder="Enter Sow ID (e.g., D1052) to draw family tree..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" placeholder="Enter Sow or Boar ID (e.g., D1052) to draw pedigree chart..." onkeyup="handleSearch()">
     </div>
 
     <div id="results"></div>
 </div>
 
 <script>
+    mermaid.initialize({ startOnLoad: false, theme: 'default' });
+
     let familyData = [];
     let valueData = [];
 
@@ -69,48 +67,46 @@
     let loadedCount = 0;
     function checkLoaded() {
         loadedCount++;
-        if (loadedCount >= 2) { document.getElementById('status').innerHTML = "✅ Database synced! Enter an ear tag to draw the family tree."; }
+        if (loadedCount >= 2) { document.getElementById('status').innerHTML = "✅ Database synced! Enter an ID to generate the pedigree chart."; }
     }
 
     loadCloudData();
 
-    function handleSearch() {
+    async function handleSearch() {
         let query = document.getElementById('searchInput'].value.trim().toLowerCase();
         let resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = "";
 
         if (!query) return;
 
-        // 1. 繪製家族樹狀圖 (Family Tree Branches)
         let matchedFamily = familyData.filter(row => Object.values(row).join(' ').toLowerCase().includes(query));
 
-        let html = `<div class="section-title">I. 🧬 Visual Family Tree Structure</div>`;
-        if (matchedFamily.length > 0) {
-            html += `<div class="tree-root-box">♀ Core Sow / Target: ${query.toUpperCase()}</div>`;
-            html += `<div class="tree-branch-container">`;
-            matchedFamily.slice(0, 12).forEach((row, index) => {
-                html += `
-                <div class="tree-node-item">
-                    <div>
-                        <div class="node-tag">Branch #${index + 1} (Generation)</div>
-                        <div class="node-val">${row[1] || 'N/A'}</div>
-                    </div>
-                    <div>
-                        <div class="node-tag">♂ Sire (公豬)</div>
-                        <div class="node-val" style="color:#3B82F6;">${row[0] || 'N/A'}</div>
-                    </div>
-                    <div>
-                        <div class="node-tag">Breed & Dam</div>
-                        <div class="node-val" style="color:#10B981;">[${row[2] || 'N/A'}] ${row[6] || 'N/A'}</div>
-                    </div>
-                </div>`;
-            });
-            html += `</div>`;
-        } else {
-            html += `<p>No family tree branches found for this ID.</p>`;
-        }
+        let html = `<div class="section-title">I. 🧬 Professional Pedigree Family Tree Chart</div>`;
+        html += `<div class="tree-diagram-box"><div class="mermaid" id="mermaidChart">`;
+        
+        // 建立類似血統樹狀圖的結構語法 (Graph TD)
+        let mermaidCode = "graph TD;\n";
+        mermaidCode += `  Target[\"♀ Target: ${query.toUpperCase()}\"]\n`;
 
-        // 2. 育種表現與指標卡片
+        if (matchedFamily.length > 0) {
+            matchedFamily.slice(0, 8).forEach((row, index) => {
+                let sire = row[0] ? row[0].replace(/["']/g, "") : "Unknown Sire";
+                let dam = row[6] ? row[6].replace(/["']/g, "") : "Unknown Dam";
+                let gen = row[1] || "Gen";
+                
+                mermaidCode += `  Sire${index}[\"♂ ${sire}\"] --> Target\n`;
+                mermaidCode += `  Dam${index}[\"♀ ${dam}\"] --> Target\n`;
+                mermaidCode += `  subgraph Branch_${index} [${gen}]\n`;
+                mermaidCode += `    Sire${index}\n`;
+                mermaidCode += `    Dam${index}\n`;
+                mermaidCode += `  end\n`;
+            });
+        } else {
+            mermaidCode += `  Target --> NoData[\"No pedigree links found\"]\n`;
+        }
+        mermaidCode += "</div></div>";
+
+        // 2. 育種指標表現
         let matchedValue = valueData.filter(row => {
             let tag = row['母豬耳號(Sow Ear Tag)'] || '';
             return String(tag).toLowerCase().includes(query);
@@ -133,6 +129,13 @@
         }
 
         resultsDiv.innerHTML = html;
+
+        // 觸發 Mermaid 重新渲染圖表
+        try {
+            await mermaid.run({ nodes: [document.getElementById('mermaidChart')] });
+        } catch (e) {
+            console.log("Chart render error:", e);
+        }
     }
 </script>
 </body>
